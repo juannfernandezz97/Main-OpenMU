@@ -218,8 +218,6 @@ int MoveCount = 0;
 
 int CurrentSkill = 0;
 
-bool Teleport = false;
-
 int BuyCost = 0;
 
 int  EnableUse = 0; // todo: get rid of this, it may cause the stuck client bug, so that players can't use items anymore.
@@ -1916,7 +1914,6 @@ BOOL ReceiveTeleport(const BYTE* ReceiveBuffer, BOOL bEncrypted)
     if (Data->Flag == 0)
     {
         CreateTeleportEnd(o);
-        Teleport = false;
     }
     else
     {
@@ -3219,7 +3216,10 @@ void ReceiveAttackDamageExtended(const BYTE* ReceiveBuffer)
     auto ShieldDamage = Data->ShieldDamage;
 
     g_ConsoleDebug->Write(MCD_RECEIVE, L"0x15 [ReceiveAttackDamageExtended(%d %d)]", AttackPlayer, Damage);
-    MUHelper::g_MuHelper.AddTarget(Key, true);
+    if (IsMonster(c) || IsPlayer(c))
+    {
+        MUHelper::g_MuHelper.AddTarget(Key, true);
+    }
 
     if (Data->HealthStatus == 0xFF)
     {
@@ -3298,7 +3298,10 @@ void ReceiveAction(const BYTE* ReceiveBuffer, int Size)
         c->Object.AnimationFrame = 0;
 
         c->TargetCharacter = HeroIndex;
-        MUHelper::g_MuHelper.AddTarget(Key, true);
+        if (IsMonster(c) || IsPlayer(c))
+        {
+            MUHelper::g_MuHelper.AddTarget(Key, true);
+        }
 
         AttackPlayer = Index;
         break;
@@ -4005,10 +4008,7 @@ BOOL ReceiveMagic(const BYTE* ReceiveBuffer, int Size, BOOL bEncrypted)
 
     case AT_SKILL_TELEPORT_B:
         CreateTeleportBegin(to);
-
         CreateTeleportEnd(so);
-        if (sc == Hero)
-            Teleport = false;
 
         PlayBuffer(SOUND_TELEKINESIS, so);
         break;
@@ -4126,8 +4126,8 @@ BOOL ReceiveMagic(const BYTE* ReceiveBuffer, int Size, BOOL bEncrypted)
     case AT_SKILL_BLOW_UP + 2:
     case AT_SKILL_BLOW_UP + 3:
     case AT_SKILL_BLOW_UP + 4:
-    case AT_SKILL_ONETOONE:
-        SetAction(so, PLAYER_ATTACK_ONETOONE);
+    case AT_SKILL_DEATHSTAB:
+        SetAction(so, PLAYER_ATTACK_DEATHSTAB);
         if (sc != Hero && so->Type == MODEL_PLAYER)
         {
             so->AnimationFrame = 0;
@@ -5058,8 +5058,8 @@ BOOL ReceiveMagicContinue(const BYTE* ReceiveBuffer, int Size, BOOL bEncrypted)
             case AT_SKILL_BLOW_UP + 2:
             case AT_SKILL_BLOW_UP + 3:
             case AT_SKILL_BLOW_UP + 4:
-            case AT_SKILL_ONETOONE:
-                SetAction(so, PLAYER_ATTACK_ONETOONE);
+            case AT_SKILL_DEATHSTAB:
+                SetAction(so, PLAYER_ATTACK_DEATHSTAB);
                 break;
 
             case AT_SKILL_STUN:
@@ -7850,7 +7850,7 @@ void Receive_Master_LevelGetSkill(const BYTE* ReceiveBuffer)
                         CharacterAttribute->Skill[i] = AT_SKILL_UNDEFINED;
                     break;
                 case AT_SKILL_BLOW_UP:
-                    if (AT_SKILL_ONETOONE == CharacterAttribute->Skill[i])
+                    if (AT_SKILL_DEATHSTAB == CharacterAttribute->Skill[i])
                         CharacterAttribute->Skill[i] = AT_SKILL_UNDEFINED;
                     break;
                 case AT_SKILL_ANGER_SWORD_UP:
@@ -10428,7 +10428,6 @@ void ReceiveUseStateItem(const BYTE* ReceiveBuffer)
 
     case 0x02:
     {
-        wchar_t strText[128];
         swprintf(strText, GlobalText[1904], GlobalText[1412]);
         SEASON3B::CreateOkMessageBox(strText);
     }
@@ -10629,8 +10628,6 @@ void ReceiveChangeMapServerInfo(const BYTE* ReceiveBuffer)
     if (0 == Data->m_vSvrInfo.m_wMapSvrPort)
     {
         LoadingWorld = 0;
-
-        Teleport = false;
         return;
     }
 
